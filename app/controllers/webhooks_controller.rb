@@ -40,12 +40,12 @@ class WebhooksController < ApplicationController
       total: payload['total_price'],
       cart_token: payload['cart_token']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts])
+    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low')
     head :ok and return
   end
 
   def app_uninstalled
-    Sidekiq::Client.push('class' => 'ShopWorker::MarkShopAsCancelledJob', 'args' => [@myshopify_domain])
+    Sidekiq::Client.push('class' => 'ShopWorker::MarkShopAsCancelledJob', 'args' => [@myshopify_domain], 'queue' => 'low')
     head :ok and return
   end
 
@@ -63,7 +63,7 @@ class WebhooksController < ApplicationController
       custom_domain: payload['domain'],
       opened_at: payload['created_at']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts])
+    Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low')
     head :ok and return
   end
   
@@ -74,7 +74,7 @@ class WebhooksController < ApplicationController
           return
         end
       end
-      Sidekiq::Client.push('class' => job_class, 'args' => args)
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low')
     end
 
     def verify_webhook
@@ -87,6 +87,6 @@ class WebhooksController < ApplicationController
         render :text => "Not Authorized", :status => :unauthorized and return
       end
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
-      @q = Sidekiq::Queue.new("default")
+      @q = Sidekiq::Queue.new("low")
     end
 end
