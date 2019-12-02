@@ -40,12 +40,12 @@ class WebhooksController < ApplicationController
       total: payload['total_price'],
       cart_token: payload['cart_token']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low')
+    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
 
   def app_uninstalled
-    Sidekiq::Client.push('class' => 'ShopWorker::MarkShopAsCancelledJob', 'args' => [@myshopify_domain], 'queue' => 'low')
+    Sidekiq::Client.push('class' => 'ShopWorker::MarkShopAsCancelledJob', 'args' => [@myshopify_domain], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
 
@@ -63,7 +63,7 @@ class WebhooksController < ApplicationController
       custom_domain: payload['domain'],
       opened_at: payload['created_at']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low')
+    Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
   
@@ -74,7 +74,7 @@ class WebhooksController < ApplicationController
           return
         end
       end
-      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low')
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
     end
 
     def verify_webhook
