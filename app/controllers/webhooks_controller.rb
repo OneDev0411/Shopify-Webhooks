@@ -63,6 +63,8 @@ class WebhooksController < ApplicationController
       custom_domain: payload['domain'],
       opened_at: payload['created_at']
     }
+    Rails.logger.info "SHOPTS"
+    Rails.logger.info shopts
     Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
