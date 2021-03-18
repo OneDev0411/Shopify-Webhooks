@@ -7,7 +7,7 @@ ruby '2.5.7'
 gem 'rails', '~> 5.2.3'
 # Use Puma as the app server
 gem 'puma', '~> 3.11'
-
+gem 'scout_apm'
 gem 'sidekiq', '~> 5.1.3'
 
 gem 'bootsnap', '>= 1.1.0', require: false
