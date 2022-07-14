@@ -33,15 +33,15 @@ class WebhooksController < ApplicationController
       nil
     end
     order_opts = {
-      shopify_id: payload['id'],
-      items: (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
-      discount_code: discount_code,
-      shopper_country: payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
-      referring_site: payload['referring_site'],
-      orders_count: payload['customer'].present? ? payload['customer']['orders_count'] : nil,
-      total: payload['total_price'],
-      cart_token: payload['cart_token']
-    }.to_json
+      'shopify_id' => payload['id'],
+      'items' => (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
+      'discount_code' => discount_code,
+      'shopper_country' => payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
+      'referring_site' => payload['referring_site'],
+      'orders_count' => payload['customer'].present? ? payload['customer']['orders_count'] : nil,
+      'total' => payload['total_price'],
+      'cart_token' => payload['cart_token']
+    }
     Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
@@ -54,17 +54,17 @@ class WebhooksController < ApplicationController
   def shop_update
     payload = params[:webhook]
     shopts = {
-      name: payload['name'],
-      shopify_id: payload['id'],
-      email: payload['email'],
-      timezone: payload['timezone'],
-      iana_timezone: payload['iana_timezone'],
-      money_format: payload['money_format'],
-      shopify_plan_name: payload['plan_display_name'],
-      shopify_plan_internal_name: payload['plan_name'],
-      custom_domain: payload['domain'],
-      opened_at: payload['created_at']
-    }.to_json
+      'name' => payload['name'],
+      'shopify_id' => payload['id'],
+      'email' => payload['email'],
+      'timezone' => payload['timezone'],
+      'iana_timezone' => payload['iana_timezone'],
+      'money_format' => payload['money_format'],
+      'shopify_plan_name' => payload['plan_display_name'],
+      'shopify_plan_internal_name' => payload['plan_name'],
+      'custom_domain' => payload['domain'],
+      'opened_at' => payload['created_at']
+    }
     Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
