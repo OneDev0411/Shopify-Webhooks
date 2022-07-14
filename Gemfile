@@ -9,7 +9,7 @@ gem 'rails', '~> 6.1.4'
 gem 'puma', '~> 3.11'
 gem 'rack-timeout'
 gem 'scout_apm'
-gem 'sidekiq', '~> 5.1.3'
+gem 'sidekiq', '~> 6.4.1'
 
 gem 'bootsnap', '>= 1.1.0', require: false
 
@@ -28,4 +28,10 @@ group :development do
   # Spring speeds up development by keeping your application running in the background. Read more: https://github.com/rails/spring
   gem 'spring'
   gem 'spring-watcher-listen', '~> 2.0.0'
+end
+
+group :test do
+  gem 'rspec'
+  gem 'rspec-rails'
+  gem 'vcr'
 end
