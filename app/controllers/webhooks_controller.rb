@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class WebhooksController < ApplicationController
   skip_before_action :verify_authenticity_token
   before_action :verify_webhook
@@ -39,7 +41,7 @@ class WebhooksController < ApplicationController
       orders_count: payload['customer'].present? ? payload['customer']['orders_count'] : nil,
       total: payload['total_price'],
       cart_token: payload['cart_token']
-    }
+    }.to_json
     Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
@@ -62,14 +64,14 @@ class WebhooksController < ApplicationController
       shopify_plan_internal_name: payload['plan_name'],
       custom_domain: payload['domain'],
       opened_at: payload['created_at']
-    }
+    }.to_json
     Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
     head :ok and return
   end
-  
+
   private
     def create_job_unless_exists(job_class, args)
-      @q.entries.each do |job| 
+      @q.entries.each do |job|
         if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
           return
         end
@@ -83,10 +85,10 @@ class WebhooksController < ApplicationController
       digest  = OpenSSL::Digest.new('sha256')
       calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data)).strip
       unless calculated_hmac == hmac_header
-        Rollbar.info("Denied Webhook", {calculated: calculated_hmac, actual: hmac_header, request: request})
-        render :text => "Not Authorized", :status => :unauthorized and return
+        Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
+        render text: 'Not Authorized', status: :unauthorized and return
       end
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
-      @q = Sidekiq::Queue.new("low")
+      @q = Sidekiq::Queue.new('low')
     end
 end
