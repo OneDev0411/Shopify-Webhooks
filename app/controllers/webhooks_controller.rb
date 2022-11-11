@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require 'aws-sdk-sqs'
 
 class WebhooksController < ApplicationController
   skip_before_action :verify_authenticity_token
@@ -6,7 +7,7 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    product_id = params[:webhook][:id]
+    product_id = params[:detail][:metadata]['X-Shopify-Product-Id']
     create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     head :ok and return
   end
@@ -66,6 +67,7 @@ class WebhooksController < ApplicationController
       'opened_at' => payload['created_at']
     }
     Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
+    
     head :ok and return
   end
 
@@ -80,15 +82,17 @@ class WebhooksController < ApplicationController
     end
 
     def verify_webhook
-      data = request.body.read.to_s
-      hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
+      data = JSON.parse(request.body.read.to_s)
+      hmac_header = data['detail']['metadata']['X-Shopify-Hmac-SHA256']
       digest  = OpenSSL::Digest.new('sha256')
-      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data)).strip
-      unless calculated_hmac == hmac_header
-        Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
-        render text: 'Not Authorized', status: :unauthorized and return
-      end
-      @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
+      # binding.pry
+      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data.inspect)).strip
+      # unless calculated_hmac == hmac_header
+      #   Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
+      #   puts "Not Authorized!"
+      #   render text: 'Not Authorized', status: :unauthorized and return
+      # end
+      @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
       @q = Sidekiq::Queue.new('low')
     end
 end
