@@ -7,7 +7,7 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    product_id = params[:detail][:metadata]['X-Shopify-Product-Id']
+    product_id = params[:detail][:payload][:id]
     create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     head :ok and return
   end
