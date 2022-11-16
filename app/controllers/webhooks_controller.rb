@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-require 'aws-sdk-sqs'
 
 class WebhooksController < ApplicationController
   skip_before_action :verify_authenticity_token
