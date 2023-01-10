@@ -20,13 +20,13 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
-    collection_id = params[:webhook][:id]
+    collection_id = params[:detail][:payload][:id]
     create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
     head :ok and return
   end
 
   def order
-    payload = params[:webhook]
+    payload = params[:detail][:payload]
     discount_code = if payload['discount_codes'] && payload['discount_codes'][0]
       payload['discount_codes'][0]['code']
     else
@@ -52,7 +52,7 @@ class WebhooksController < ApplicationController
   end
 
   def shop_update
-    payload = params[:webhook]
+    payload = params[:detail][:payload]
     shopts = {
       'name' => payload['name'],
       'shopify_id' => payload['id'],
@@ -82,15 +82,7 @@ class WebhooksController < ApplicationController
 
     def verify_webhook
       data = JSON.parse(request.body.read.to_s)
-      hmac_header = data['detail']['metadata']['X-Shopify-Hmac-SHA256']
-      digest  = OpenSSL::Digest.new('sha256')
-      # binding.pry
-      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data.inspect)).strip
-      # unless calculated_hmac == hmac_header
-      #   Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
-      #   puts "Not Authorized!"
-      #   render text: 'Not Authorized', status: :unauthorized and return
-      # end
+
       @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
       @q = Sidekiq::Queue.new('low')
     end
