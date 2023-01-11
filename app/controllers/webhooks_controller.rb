@@ -72,11 +72,14 @@ class WebhooksController < ApplicationController
 
   private
     def create_job_unless_exists(job_class, args)
+      puts "~~~~~~~~~~~~~~~~~~~~~~~"
       @q.entries.each do |job|
         if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
           return
         end
       end
+      puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
+      puts job_class
       Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
     end
 
