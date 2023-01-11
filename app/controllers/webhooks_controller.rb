@@ -81,7 +81,7 @@ class WebhooksController < ApplicationController
       puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
       puts job_class
       puts args
-      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i)
     end
 
     def verify_webhook
