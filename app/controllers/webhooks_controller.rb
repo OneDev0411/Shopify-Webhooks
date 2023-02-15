@@ -75,11 +75,13 @@ class WebhooksController < ApplicationController
     def create_job_unless_exists(job_class, args)
       logger.info "------ Start create_job_unless_exists ------\n"
       
-      @q.entries.each do |job|
-        if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
-          return
-        end
-      end
+      # TODO: pushing all the jobs
+      # @q.entries.each do |job|
+      #   if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
+      #     return
+      #   end
+      # end
+
       logger.info "------ Inside create_job_unless_exists: Entries Matched ------\n"
       Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
       logger.info "------ Inside create_job_unless_exists: Job pushed ------\n"
