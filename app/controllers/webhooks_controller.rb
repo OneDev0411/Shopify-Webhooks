@@ -8,6 +8,8 @@ class WebhooksController < ApplicationController
   def product
     product_id = params[:webhook][:id]
     create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
+    logger.info "------ Returning from the function ------\n"
+    
     head :ok and return
   end
 
@@ -75,24 +77,39 @@ class WebhooksController < ApplicationController
 
   private
     def create_job_unless_exists(job_class, args)
+      logger.info "------ Start create_job_unless_exists ------\n"
+      
+      # TODO: pushing all the jobs
       @q.entries.each do |job|
         if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
           return
         end
       end
+
+      logger.info "------ Inside create_job_unless_exists: Entries Matched ------\n"
       Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
+      logger.info "------ Inside create_job_unless_exists: Job pushed ------\n"
     end
 
     def verify_webhook
+      logger.info "------ Start webhook verify ------\n"
       data = request.body.read.to_s
       hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
+      logger.info "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
+
       digest  = OpenSSL::Digest.new('sha256')
       calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data)).strip
+      logger.info "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
       unless calculated_hmac == hmac_header
+      logger.info "------ Inside webhook verify: calculated webhook don't matched\n" * 5
         Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
         render text: 'Not Authorized', status: :unauthorized and return
       end
+      logger.info "------ Inside webhook verify: calculated webhook matched\n" * 5
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
+      logger.info "------ Inside webhook verify: myshopify_domain: #{@myshopify_domain}\n"
       @q = Sidekiq::Queue.new('low')
+      logger.info "------ end verify_webhook \n" * 5
+
     end
 end
