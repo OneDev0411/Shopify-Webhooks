@@ -82,4 +82,14 @@ RSpec.describe 'WebhooksController', type: :request do
       expect(response).to have_http_status :ok
     end
   end
+
+  describe '.check_duplicates?' do
+    before do
+      @controller = WebhooksController.new
+    end
+    it 'checks if CHECK_DUPLICATE_JOBS is set regardless of value' do
+      result = @controller.instance_eval{ check_duplicates? }
+      expect([true, false].include?(result)).to eq(true)
+    end
+  end
 end
