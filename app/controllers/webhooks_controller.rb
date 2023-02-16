@@ -35,16 +35,20 @@ class WebhooksController < ApplicationController
       nil
     end
     order_opts = {
-      'shopify_id' => payload['id'],
-      'items' => (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
-      'discount_code' => discount_code,
-      'shopper_country' => payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
-      'referring_site' => payload['referring_site'],
-      'orders_count' => payload['customer'].present? ? payload['customer']['orders_count'] : nil,
-      'total' => payload['total_price'],
-      'cart_token' => payload['cart_token']
+      shopify_id: payload['id'],
+      items: (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
+      item_variants: (payload['line_items'] || []).map{|l| { variant_id: l['variant_id'], quantity: l['quantity'], price: l['price'], discount: l['discount_allocations'] } },
+      discount_code: discount_code,
+      shopper_country: payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
+      referring_site: payload['referring_site'],
+      orders_count: payload['customer'].present? ? payload['customer']['orders_count'] : nil,
+      total: payload['total_price'],
+      cart_token: payload['cart_token']
     }
     Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
+    unless payload['cart_token'].nil?
+      Sidekiq::Client.push('class' => 'ShopWorker::SaveOfferSaleJob', 'args' => [order_opts], 'queue' => 'sale_stats', 'at' => Time.now.to_i + 11)
+    end
     head :ok and return
   end
 
