@@ -1,6 +1,7 @@
 class CreateDelayedJobs < ActiveRecord::Migration[6.1]
   def self.up
-    create_table :delayed_jobs do |table|
+
+    create_table :delayed_jobs, if_not_exists: true do |table|
       table.integer :priority, default: 0, null: false # Allows some jobs to jump to the front of the queue
       table.integer :attempts, default: 0, null: false # Provides for retries, but still fail eventually.
       table.text :handler,                 null: false # YAML-encoded string of the object that will do work
