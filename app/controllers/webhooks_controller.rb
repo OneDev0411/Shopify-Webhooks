@@ -76,7 +76,7 @@ class WebhooksController < ApplicationController
   end
 
   private
-    def self.create_job_unless_exists(job_class, args)
+    def create_job_unless_exists(job_class, args)
       logger.info "------ Start create_job_unless_exists ------\n"
       
       if check_duplicates?
