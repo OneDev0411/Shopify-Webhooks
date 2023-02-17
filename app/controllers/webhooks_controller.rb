@@ -81,7 +81,6 @@ class WebhooksController < ApplicationController
       
       if check_duplicates?
         @q.entries.each do |job|
-          logger.info "-=-=-=-=-=-=-=- Inside duplicate check -=-=-=-=-=-\n" * 3
           if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
             return
           end
