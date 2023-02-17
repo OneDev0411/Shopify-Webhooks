@@ -7,7 +7,7 @@ class WebhooksController < ApplicationController
   #products/create, products/update
   def product
     product_id = params[:webhook][:id]
-    WebhooksController.delay.create_job_unless_exists(@q, 'ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
+    create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     logger.info "------ Returning from the function ------\n"
     
     head :ok and return
@@ -16,14 +16,14 @@ class WebhooksController < ApplicationController
   #We don't use this webhook, but maybe we should
   def product_deleted
     product_id = @payload['id']
-    WebhooksController.delay.create_job_unless_exists(@q, 'ShopWorker::MarkProductDeletedJob', [@myshopify_domain, product_id])
+    create_job_unless_exists('ShopWorker::MarkProductDeletedJob', [@myshopify_domain, product_id])
     head :ok and return
   end
 
   #collections/create, collections/update
   def collection
     collection_id = params[:webhook][:id]
-    WebhooksController.delay.create_job_unless_exists(@q, 'ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
+    create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
     head :ok and return
   end
 
@@ -76,11 +76,11 @@ class WebhooksController < ApplicationController
   end
 
   private
-    def self.create_job_unless_exists(queue, job_class, args)
+    def self.create_job_unless_exists(job_class, args)
       logger.info "------ Start create_job_unless_exists ------\n"
       
-      if WebhooksController.check_duplicates?
-        queue.entries.each do |job|
+      if check_duplicates?
+        @q.entries.each do |job|
           logger.info "-=-=-=-=-=-=-=- Inside duplicate check -=-=-=-=-=-\n" * 3
           if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
             return
@@ -115,7 +115,7 @@ class WebhooksController < ApplicationController
 
     end
 
-    def self.check_duplicates?
+    def check_duplicates?
       logger.info "------ Inside check duplicates: #{ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'} ------\n"
       ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'
     end
