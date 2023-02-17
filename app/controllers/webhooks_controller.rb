@@ -79,11 +79,12 @@ class WebhooksController < ApplicationController
     def self.create_job_unless_exists(queue, job_class, args)
       logger.info "------ Start create_job_unless_exists ------\n"
       
-      # TODO: pushing all the jobs
-      queue.entries.each do |job|
-        logger.info "-=-=-=-=-=-=-=- Inside duplicate check -=-=-=-=-=-\n" * 3
-        if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
-          return
+      if check_duplicates?
+        queue.entries.each do |job|
+          logger.info "-=-=-=-=-=-=-=- Inside duplicate check -=-=-=-=-=-\n" * 3
+          if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
+            return
+          end
         end
       end
 
