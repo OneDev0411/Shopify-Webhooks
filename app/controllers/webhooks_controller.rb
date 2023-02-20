@@ -6,7 +6,11 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    product_id = params[:detail][:payload][:id]
+    if params[:detail].present?
+      product_id = params[:detail][:payload][:id]
+    else
+      product_id = params[:webhook][:id]
+    end
     create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     head :ok and return
   end
@@ -20,13 +24,21 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
-    collection_id = params[:detail][:payload][:id]
+    if params[:detail].present?
+      collection_id = params[:detail][:payload][:id]
+    else
+      collection_id = params[:webhook][:id]
+    end
     create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
     head :ok and return
   end
 
   def order
-    payload = params[:detail][:payload]
+    if params[:detail].present?
+      payload = params[:detail][:payload]
+    else
+      payload = params[:webhook]
+    end
     discount_code = if payload['discount_codes'] && payload['discount_codes'][0]
       payload['discount_codes'][0]['code']
     else
@@ -52,7 +64,11 @@ class WebhooksController < ApplicationController
   end
 
   def shop_update
-    payload = params[:detail][:payload]
+    if params[:detail].present?
+      payload = params[:detail][:payload]
+    else
+      payload = params[:webhook]
+    end
     shopts = {
       'name' => payload['name'],
       'shopify_id' => payload['id'],
@@ -86,8 +102,23 @@ class WebhooksController < ApplicationController
 
     def verify_webhook
       data = JSON.parse(request.body.read.to_s)
+      if data['detail'].present?
+        @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
+      else
+        hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
+        logger.info "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
 
-      @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
+        digest  = OpenSSL::Digest.new('sha256')
+        calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], request.body.read.to_s)).strip
+        logger.info "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
+        unless calculated_hmac == hmac_header
+          logger.info "------ Inside webhook verify: calculated webhook don't matched\n" * 5
+          Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
+          render text: 'Not Authorized', status: :unauthorized and return
+        end
+        logger.info "------ Inside webhook verify: calculated webhook matched\n" * 5
+        @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
+      end
       @q = Sidekiq::Queue.new('low')
     end
 end
