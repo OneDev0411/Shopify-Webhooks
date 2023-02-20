@@ -6,7 +6,11 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    product_id = params[:webhook][:id]
+    if params[:detail].present?
+      product_id = params[:detail][:payload][:id]
+    else
+      product_id = params[:webhook][:id]
+    end
     create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     logger.info "------ Returning from the function ------\n"
     
@@ -22,13 +26,21 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
-    collection_id = params[:webhook][:id]
+    if params[:detail].present?
+      collection_id = params[:detail][:payload][:id]
+    else
+      collection_id = params[:webhook][:id]
+    end
     create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
     head :ok and return
   end
 
   def order
-    payload = params[:webhook]
+    if params[:detail].present?
+      payload = params[:detail][:payload]
+    else
+      payload = params[:webhook]
+    end
     discount_code = if payload['discount_codes'] && payload['discount_codes'][0]
       payload['discount_codes'][0]['code']
     else
@@ -58,7 +70,11 @@ class WebhooksController < ApplicationController
   end
 
   def shop_update
-    payload = params[:webhook]
+    if params[:detail].present?
+      payload = params[:detail][:payload]
+    else
+      payload = params[:webhook]
+    end
     shopts = {
       'name' => payload['name'],
       'shopify_id' => payload['id'],
@@ -72,13 +88,13 @@ class WebhooksController < ApplicationController
       'opened_at' => payload['created_at']
     }
     Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
+    
     head :ok and return
   end
 
   private
     def create_job_unless_exists(job_class, args)
-      logger.info "------ Start create_job_unless_exists ------\n"
-      
+      puts "~~~~~~~~~~~~~~~~~~~~~~~"
       if check_duplicates?
         @q.entries.each do |job|
           if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
@@ -86,32 +102,32 @@ class WebhooksController < ApplicationController
           end
         end
       end
-
-      logger.info "------ Inside create_job_unless_exists: Entries Matched ------\n"
-      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i + 10)
-      logger.info "------ Inside create_job_unless_exists: Job pushed ------\n"
+      puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
+      puts job_class
+      puts args
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i)
     end
 
     def verify_webhook
-      logger.info "------ Start webhook verify ------\n"
-      data = request.body.read.to_s
-      hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
-      logger.info "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
+      data = JSON.parse(request.body.read.to_s)
+      if data['detail'].present?
+        @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
+      else
+        hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
+        logger.info "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
 
-      digest  = OpenSSL::Digest.new('sha256')
-      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], data)).strip
-      logger.info "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
-      unless calculated_hmac == hmac_header
-      logger.info "------ Inside webhook verify: calculated webhook don't matched\n" * 5
-        Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
-        render text: 'Not Authorized', status: :unauthorized and return
+        digest  = OpenSSL::Digest.new('sha256')
+        calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], request.body.read.to_s)).strip
+        logger.info "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
+        unless calculated_hmac == hmac_header
+          logger.info "------ Inside webhook verify: calculated webhook don't matched\n" * 5
+          Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
+          render text: 'Not Authorized', status: :unauthorized and return
+        end
+        logger.info "------ Inside webhook verify: calculated webhook matched\n" * 5
+        @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
       end
-      logger.info "------ Inside webhook verify: calculated webhook matched\n" * 5
-      @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
-      logger.info "------ Inside webhook verify: myshopify_domain: #{@myshopify_domain}\n"
       @q = Sidekiq::Queue.new('low')
-      logger.info "------ end verify_webhook \n" * 5
-
     end
 
     def check_duplicates?
