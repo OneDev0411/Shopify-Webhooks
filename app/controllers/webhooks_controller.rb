@@ -59,10 +59,10 @@ class WebhooksController < ApplicationController
         cart_token: payload['cart_token']
       }
       Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
-      Rollbar.info(`Pushed ShopWorker::RecordOrderJob in queue for shop #{@myshopify_domain} and order #{order_opts}`);
+      Rollbar.info("Pushed ShopWorker::RecordOrderJob in queue for shop #{@myshopify_domain} and order #{order_opts}");
       unless payload['cart_token'].nil?
-        Rollbar.info(`Pushed ShopWorker::SaveOfferSaleJob in queue for shop #{@myshopify_domain} and order #{order_opts}`);
         Sidekiq::Client.push('class' => 'ShopWorker::SaveOfferSaleJob', 'args' => [order_opts], 'queue' => 'sale_stats', 'at' => Time.now.to_i + 11)
+        Rollbar.info("Pushed ShopWorker::SaveOfferSaleJob in queue for shop #{@myshopify_domain} and order #{order_opts}");
       end
       head :ok and return
     rescue StandardError => e
