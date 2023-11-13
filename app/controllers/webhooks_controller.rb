@@ -11,7 +11,7 @@ class WebhooksController < ApplicationController
     else
       product_id = params[:webhook][:id]
     end
-    create_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
+    create_products_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
     logger.info "------ Returning from the function ------\n"
     
     head :ok and return
@@ -107,6 +107,24 @@ class WebhooksController < ApplicationController
       puts args
       Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i)
     end
+
+    # This function should be removed in the future and the generic function above 
+    # should refactored to accept an optional queue argument
+    def create_products_job_unless_exists(job_class, args)
+      puts "~~~~~~~~~~~~~~~~~~~~~~~"
+      if check_duplicates?
+        @q.entries.each do |job|
+          if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
+            return
+          end
+        end
+      end
+      puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
+      puts job_class
+      puts args
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'products', 'at' => Time.now.to_i)
+    end
+
 
     def verify_webhook
       data = JSON.parse(request.body.read.to_s)
