@@ -17,7 +17,6 @@ class WebhooksController < ApplicationController
     head :ok and return
   end
 
-  #We don't use this webhook, but maybe we should
   def product_deleted
 
     if params[:detail].present?
