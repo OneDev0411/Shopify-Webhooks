@@ -19,9 +19,15 @@ class WebhooksController < ApplicationController
 
   #We don't use this webhook, but maybe we should
   def product_deleted
-    product_id = @payload['id']
+
+    if params[:detail].present?
+      product_id = params[:detail][:payload][:id]
+    else
+      product_id = params[:webhook][:id]
+    end
     create_job_unless_exists('ShopWorker::MarkProductDeletedJob', [@myshopify_domain, product_id])
     head :ok and return
+
   end
 
   #collections/create, collections/update
