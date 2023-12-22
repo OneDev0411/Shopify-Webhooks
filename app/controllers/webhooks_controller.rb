@@ -62,7 +62,7 @@ class WebhooksController < ApplicationController
       total: payload['total_price'],
       cart_token: payload['cart_token']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
+    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'orders', 'at' => Time.now.to_i + 10)
     unless payload['cart_token'].nil?
       Sidekiq::Client.push('class' => 'ShopWorker::SaveOfferSaleJob', 'args' => [order_opts], 'queue' => 'sale_stats', 'at' => Time.now.to_i + 11)
     end
