@@ -30,17 +30,10 @@ class WebhooksController < ApplicationController
   end
 
   def order
-    puts 'abc'
-    if params[:detail].present?
-      payload = params[:detail][:payload]
-    else
-      payload = params[:webhook]
-    end
-    discount_code = if payload['discount_codes'] && payload['discount_codes'][0]
-      payload['discount_codes'][0]['code']
-    else
-      nil
-    end
+    puts "payload: #{params}"
+    # details = params[:detail]
+    payload = params[:detail].present? ? params[:detail][:payload] : params[:webhook]
+    discount_code = payload['discount_codes'] && payload['discount_codes'][0] ? payload['discount_codes'][0]['code'] : nil
     order_opts = {
       shopify_id: payload['id'],
       items: (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
@@ -91,6 +84,11 @@ class WebhooksController < ApplicationController
     def set_object_id
       @object_id = params[:detail].present? ? params[:detail][:payload][:id] : params[:webhook][:id]
     end
+
+
+    # def discount(payload)
+    #   payload['discount_codes'] && payload['discount_codes'][0] ? payload['discount_codes'][0]['code'] : nil
+    # end
 
     # def create_job_unless_exists(job_class, args)
     #   puts "~~~~~~~~~~~~~~~~~~~~~~~"
