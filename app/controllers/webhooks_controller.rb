@@ -3,7 +3,7 @@
 class WebhooksController < ApplicationController
   skip_before_action :verify_authenticity_token
   before_action :verify_webhook
-  before_action :set_object_id, only: [:product, :product_deleted, :collection]
+  before_action :set_object_id, only: [:product, :delete_product, :collection]
 
   #products/create, products/update
   def product
