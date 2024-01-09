@@ -31,23 +31,11 @@ class WebhooksController < ApplicationController
 
   def order
     puts "payload: #{params}"
-    # details = params[:detail]
     payload = params[:detail].present? ? params[:detail][:payload] : params[:webhook]
-    discount_code = payload['discount_codes'] && payload['discount_codes'][0] ? payload['discount_codes'][0]['code'] : nil
-    order_opts = {
-      shopify_id: payload['id'],
-      items: (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
-      item_variants: (payload['line_items'] || []).map{|l| { variant_id: l['variant_id'], quantity: l['quantity'], price: l['price'], discount: l['discount_allocations'] } },
-      discount_code: discount_code,
-      shopper_country: payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
-      referring_site: payload['referring_site'],
-      orders_count: payload['customer'].present? ? payload['customer']['orders_count'] : nil,
-      total: payload['total_price'],
-      cart_token: payload['cart_token']
-    }
-    enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts], 'orders', Time.now.to_i + 10)
-    enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],'sale_stats',
-                 Time.now.to_i + 11) unless payload['cart_token'].nil?
+    enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts(payload, discount_code)],
+                'orders', Time.now.to_i + 10)
+    enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts(payload, discount_code)],
+                 'sale_stats', Time.now.to_i + 11) unless payload['cart_token'].nil?
     head :ok and return
   end
 
@@ -85,10 +73,24 @@ class WebhooksController < ApplicationController
       @object_id = params[:detail].present? ? params[:detail][:payload][:id] : params[:webhook][:id]
     end
 
+    def order_opts(payload)
+      {
+        shopify_id: payload['id'],
+        items: (payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
+        item_variants: (payload['line_items'] || []).map{|l| { variant_id: l['variant_id'], quantity: l['quantity'], price: l['price'], discount: l['discount_allocations'] } },
+        discount_code: discount_code(payload),
+        shopper_country: payload['billing_address'].present? ? payload['billing_address']['country_code'] : nil,
+        referring_site: payload['referring_site'],
+        orders_count: payload['customer'].present? ? payload['customer']['orders_count'] : nil,
+        total: payload['total_price'],
+        cart_token: payload['cart_token']
+      }
+    end
 
-    # def discount(payload)
-    #   payload['discount_codes'] && payload['discount_codes'][0] ? payload['discount_codes'][0]['code'] : nil
-    # end
+    def discount_code(payload)
+      discount_codes = payload['discount_codes']
+      discount_codes[0]['code'] if discount_codes && discount_codes[0]
+    end
 
     # def create_job_unless_exists(job_class, args)
     #   puts "~~~~~~~~~~~~~~~~~~~~~~~"
