@@ -3,40 +3,33 @@
 class WebhooksController < ApplicationController
   skip_before_action :verify_authenticity_token
   before_action :verify_webhook
+  before_action :set_product_id, only: [:product, :product_deleted, :collection]
 
   #products/create, products/update
   def product
-    if params[:detail].present?
-      product_id = params[:detail][:payload][:id]
-    else
-      product_id = params[:webhook][:id]
-    end
-    create_products_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', [@myshopify_domain, product_id])
+    puts "object id:#{@object_id}"
+    create_products_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', 
+                                       [@myshopify_domain, @object_id])
+    puts 'job 1 executed successfully'
     logger.info "------ Returning from the function ------\n"
-    
     head :ok and return
   end
 
+
   def product_deleted
-
-    if params[:detail].present?
-      product_id = params[:detail][:payload][:id]
-    else
-      product_id = params[:webhook][:id]
-    end
-    create_job_unless_exists('ShopWorker::MarkProductDeletedJob', [@myshopify_domain, product_id])
+    puts "object id:#{@object_id}"
+    create_job_unless_exists('ShopWorker::MarkProductDeletedJob',
+                             [@myshopify_domain, @object_id])
+    puts 'job 2 executed successfully'
     head :ok and return
-
   end
 
   #collections/create, collections/update
   def collection
-    if params[:detail].present?
-      collection_id = params[:detail][:payload][:id]
-    else
-      collection_id = params[:webhook][:id]
-    end
-    create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', [@myshopify_domain, collection_id])
+    puts "object id:#{@object_id}"
+    create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
+                              [@myshopify_domain, @object_id])
+    puts 'job 3 executed successfully'
     head :ok and return
   end
 
@@ -98,6 +91,11 @@ class WebhooksController < ApplicationController
   end
 
   private
+
+    def set_object_id(params)
+      @object_id = params[:detail].present? ? params[:detail][:payload][:id] : params[:webhook][:id]
+    end
+
     def create_job_unless_exists(job_class, args)
       puts "~~~~~~~~~~~~~~~~~~~~~~~"
       if check_duplicates?
