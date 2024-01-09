@@ -7,33 +7,30 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    puts "object id:#{@object_id}"
-    create_products_job_unless_exists('ShopWorker::UpdateProductIfUsedInOfferJob', 
-                                       [@myshopify_domain, @object_id])
-    puts 'job 1 executed successfully'
-    logger.info "------ Returning from the function ------\n"
+    puts 'abc'
+    enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
+                 [@myshopify_domain, @object_id], 'product', Time.now.to_i)
     head :ok and return
   end
 
 
-  def product_deleted
-    puts "object id:#{@object_id}"
-    create_job_unless_exists('ShopWorker::MarkProductDeletedJob',
-                             [@myshopify_domain, @object_id])
-    puts 'job 2 executed successfully'
+  def delete_product
+    puts 'abc'
+    enqueue_job('ShopWorker::MarkProductDeletedJob',
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
   end
 
   #collections/create, collections/update
   def collection
-    puts "object id:#{@object_id}"
-    create_job_unless_exists('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
-                              [@myshopify_domain, @object_id])
-    puts 'job 3 executed successfully'
+    puts 'abc'
+    enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
   end
 
   def order
+    puts 'abc'
     if params[:detail].present?
       payload = params[:detail][:payload]
     else
@@ -55,15 +52,15 @@ class WebhooksController < ApplicationController
       total: payload['total_price'],
       cart_token: payload['cart_token']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::RecordOrderJob', 'args' => [@myshopify_domain, order_opts], 'queue' => 'orders', 'at' => Time.now.to_i + 10)
-    unless payload['cart_token'].nil?
-      Sidekiq::Client.push('class' => 'ShopWorker::SaveOfferSaleJob', 'args' => [order_opts], 'queue' => 'sale_stats', 'at' => Time.now.to_i + 11)
-    end
+    enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts], 'orders', Time.now.to_i + 10)
+    enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],'sale_stats',
+                 Time.now.to_i + 11) unless payload['cart_token'].nil?
     head :ok and return
   end
 
   def app_uninstalled
-    Sidekiq::Client.push('class' => 'ShopWorker::MarkShopAsCancelledJob', 'args' => [@myshopify_domain], 'queue' => 'low', 'at' => Time.now.to_i + 10)
+    puts 'abc'
+    enqueue_job('ShopWorker::MarkShopAsCancelledJob', [@myshopify_domain], 'low', Time.now.to_i + 10)
     head :ok and return
   end
 
@@ -85,8 +82,7 @@ class WebhooksController < ApplicationController
       'custom_domain' => payload['domain'],
       'opened_at' => payload['created_at']
     }
-    Sidekiq::Client.push('class' => 'ShopWorker::UpdateShopJob', 'args' => [@myshopify_domain, shopts], 'queue' => 'low', 'at' => Time.now.to_i + 10)
-    
+    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shopts], 'low', Time.now.to_i + 10)
     head :ok and return
   end
 
@@ -96,36 +92,26 @@ class WebhooksController < ApplicationController
       @object_id = params[:detail].present? ? params[:detail][:payload][:id] : params[:webhook][:id]
     end
 
-    def create_job_unless_exists(job_class, args)
-      puts "~~~~~~~~~~~~~~~~~~~~~~~"
-      if check_duplicates?
-        @q.entries.each do |job|
-          if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
-            return
-          end
-        end
-      end
-      puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
-      puts job_class
-      puts args
-      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i)
-    end
+    # def create_job_unless_exists(job_class, args)
+    #   puts "~~~~~~~~~~~~~~~~~~~~~~~"
+    #   if check_duplicates?
+    #     @q.entries.each do |job|
+    #       if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
+    #         return
+    #       end
+    #     end
+    #   end
+    #   puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
+    #   puts job_class
+    #   puts args
+    #   Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'low', 'at' => Time.now.to_i)
+    # end
 
     # This function should be removed in the future and the generic function above 
     # should refactored to accept an optional queue argument
-    def create_products_job_unless_exists(job_class, args)
-      puts "~~~~~~~~~~~~~~~~~~~~~~~"
-      if check_duplicates?
-        @q.entries.each do |job|
-          if job['class'] == job_class && job['args'].is_a?(Array) && job['args'] == args
-            return
-          end
-        end
-      end
-      puts "~~~~~~~~~~Pushing the job in Sidekiq~~~~~~~~~~~~"
-      puts job_class
-      puts args
-      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => 'products', 'at' => Time.now.to_i)
+
+    def enqueue_job(job_class, args, queue, time)
+      Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => queue, 'at' => time)
     end
 
 
@@ -151,8 +137,8 @@ class WebhooksController < ApplicationController
       @q = Sidekiq::Queue.new('low')
     end
 
-    def check_duplicates?
-      logger.info "------ Inside check duplicates: #{ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'} ------\n"
-      ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'
-    end
+    # def check_duplicates?
+    #   logger.info "------ Inside check duplicates: #{ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'} ------\n"
+    #   ENV.fetch('CHECK_DUPLICATE_JOBS') == 'true'
+    # end
 end
