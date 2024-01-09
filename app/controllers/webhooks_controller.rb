@@ -92,7 +92,7 @@ class WebhooksController < ApplicationController
 
   private
 
-    def set_object_id(params)
+    def set_object_id
       @object_id = params[:detail].present? ? params[:detail][:payload][:id] : params[:webhook][:id]
     end
 
