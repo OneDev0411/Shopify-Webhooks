@@ -58,12 +58,15 @@ class WebhooksController < ApplicationController
   def order_opts
     {
       shopify_id: @payload['id'],
-      items: (@payload['line_items'] || []).map{|l| l['product_id'] }.compact.sort,
-      item_variants: (@payload['line_items'] || []).map{|l| { variant_id: l['variant_id'], quantity: l['quantity'], price: l['price'], discount: l['discount_allocations'] } },
+      items: (@payload['line_items'] || []).map{ |l| l['product_id'] }.compact.sort,
+      item_variants: (@payload['line_items'] || []).map{ |l| { variant_id: l['variant_id'], 
+                                                              quantity: l['quantity'], 
+                                                              price: l['price'], 
+                                                              discount: l['discount_allocations'] } },
       discount_code: discount_code,
-      shopper_country: @payload['billing_address'].present? ? @payload['billing_address']['country_code'] : nil,
+      shopper_country: @payload.dig('billing_address', 'country_code'),
       referring_site: @payload['referring_site'],
-      orders_count: @payload['customer'].present? ? @payload['customer']['orders_count'] : nil,
+      orders_count: @payload.dig('customer', 'orders_count'),
       total: @payload['total_price'],
       cart_token: @payload['cart_token']
     }
@@ -92,7 +95,6 @@ class WebhooksController < ApplicationController
   def enqueue_job(job_class, args, queue, time)
     Sidekiq::Client.push('class' => job_class, 'args' => args, 'queue' => queue, 'at' => time)
   end
-
 
   def verify_webhook
     data = JSON.parse(request.body.read.to_s)
