@@ -60,9 +60,9 @@ class WebhooksController < ApplicationController
       shopify_id: @payload['id'],
       items: (@payload['line_items'] || []).map{ |l| l['product_id'] }.compact.sort,
       item_variants: (@payload['line_items'] || []).map{ |l| { variant_id: l['variant_id'], 
-                                                              quantity: l['quantity'], 
-                                                              price: l['price'], 
-                                                              discount: l['discount_allocations'] } },
+                                                               quantity: l['quantity'], 
+                                                               price: l['price'], 
+                                                               discount: l['discount_allocations'] } },
       discount_code: discount_code,
       shopper_country: @payload.dig('billing_address', 'country_code'),
       referring_site: @payload['referring_site'],
@@ -102,17 +102,16 @@ class WebhooksController < ApplicationController
       @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
     else
       hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
-      logger.info "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
-
+      puts "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
       digest  = OpenSSL::Digest.new('sha256')
       calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], request.body.read.to_s)).strip
-      logger.info "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
+      puts "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
       unless calculated_hmac == hmac_header
-        logger.info "------ Inside webhook verify: calculated webhook don't matched\n" * 5
+        puts "------ Inside webhook verify: calculated webhook don't matched\n" * 5
         Rollbar.info('Denied Webhook', {calculated: calculated_hmac, actual: hmac_header, request: request})
         render text: 'Not Authorized', status: :unauthorized and return
       end
-      logger.info "------ Inside webhook verify: calculated webhook matched\n" * 5
+      puts "------ Inside webhook verify: calculated webhook matched\n" * 5
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
     end
     @q = Sidekiq::Queue.new('low')
