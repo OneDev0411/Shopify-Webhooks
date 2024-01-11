@@ -63,7 +63,7 @@ class WebhooksController < ApplicationController
                                                                quantity: l['quantity'], 
                                                                price: l['price'], 
                                                                discount: l['discount_allocations'] } },
-      discount_code: discount_code,
+      discount_code: @payload['discount_codes']&.first&.dig('code'),
       shopper_country: @payload.dig('billing_address', 'country_code'),
       referring_site: @payload['referring_site'],
       orders_count: @payload.dig('customer', 'orders_count'),
@@ -85,11 +85,6 @@ class WebhooksController < ApplicationController
       'custom_domain' => @payload['domain'],
       'opened_at' => @payload['created_at']
     }
-  end
-
-  def discount_code
-    discount_codes = @payload['discount_codes']
-    discount_codes[0]['code'] if discount_codes && discount_codes[0]
   end
 
   def enqueue_job(job_class, args, queue, time)
@@ -114,6 +109,5 @@ class WebhooksController < ApplicationController
       puts "------ Inside webhook verify: calculated webhook matched\n" * 5
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
     end
-    @q = Sidekiq::Queue.new('low')
   end
 end
