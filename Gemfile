@@ -9,7 +9,7 @@ gem 'rails', '~> 6.1.4'
 gem 'puma', '~> 3.11'
 gem 'rack-timeout'
 gem 'scout_apm'
-gem 'sidekiq', '~> 6.4.1'
+gem 'sidekiq', '~> 6.5.5'
 
 gem 'bootsnap', '>= 1.1.0', require: false
 
