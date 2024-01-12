@@ -92,14 +92,15 @@ class WebhooksController < ApplicationController
   end
 
   def verify_webhook
-    data = JSON.parse(request.body.read.to_s)
+    request_body = request.body.read.to_s
+    data = JSON.parse(request_body)
     if data['detail'].present?
       @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
     else
       hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
       puts "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
       digest  = OpenSSL::Digest.new('sha256')
-      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], request.body.read.to_s)).strip
+      calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, ENV['SHOPIFY_APP_SECRET'], request_body)).strip
       puts "------ Inside webhook verify: calculated_hmac #{calculated_hmac} ------\n"
       unless calculated_hmac == hmac_header
         puts "------ Inside webhook verify: calculated webhook don't matched\n" * 5
