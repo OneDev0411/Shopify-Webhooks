@@ -8,12 +8,14 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
+    puts "Product create/update params: #{params}"
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'product', Time.now.to_i)
     head :ok and return
   end
 
   def delete_product
+    puts "Product delete params: #{params}"
     enqueue_job('ShopWorker::MarkProductDeletedJob',
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
@@ -21,13 +23,14 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
+    puts "Collection create/update params: #{params}"
     enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
   end
 
   def order
-    puts "payload: #{params}"
+    puts "Orders create params: #{params}"
     enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts],
                 'orders', Time.now.to_i + 10)
     enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],
@@ -36,11 +39,13 @@ class WebhooksController < ApplicationController
   end
 
   def app_uninstalled
+    puts "App Uninstalled params: #{params}"
     enqueue_job('ShopWorker::MarkShopAsCancelledJob', [@myshopify_domain], 'low', Time.now.to_i + 10)
     head :ok and return
   end
 
   def shop_update
+    puts "Shop update params: #{params}"
     enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10)
     head :ok and return
   end
