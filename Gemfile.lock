@@ -99,6 +99,8 @@ GEM
     minitest (5.16.2)
     msgpack (1.5.3)
     nio4r (2.5.8)
+    nokogiri (1.13.7-arm64-darwin)
+      racc (~> 1.4)
     nokogiri (1.13.7-x86_64-linux)
       racc (~> 1.4)
     parser (3.1.2.0)
@@ -168,10 +170,10 @@ GEM
     rspec-support (3.11.0)
     scout_apm (5.2.0)
       parser
-    sidekiq (6.4.2)
+    sidekiq (6.5.5)
       connection_pool (>= 2.2.2)
       rack (~> 2.0)
-      redis (>= 4.2.0)
+      redis (>= 4.5.0)
     spring (2.1.1)
     spring-watcher-listen (2.0.1)
       listen (>= 2.7, < 4.0)
@@ -198,6 +200,7 @@ GEM
     zeitwerk (2.6.0)
 
 PLATFORMS
+  arm64-darwin-21
   x86_64-linux
 
 DEPENDENCIES
@@ -215,7 +218,7 @@ DEPENDENCIES
   rspec
   rspec-rails
   scout_apm
-  sidekiq (~> 6.4.1)
+  sidekiq (~> 6.5.5)
   spring
   spring-watcher-listen (~> 2.0.0)
   vcr
