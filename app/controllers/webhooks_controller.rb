@@ -8,12 +8,16 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
+    return unless ensure_redis_entry_exists
+
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'product', Time.now.to_i)
     head :ok and return
   end
 
   def delete_product
+    return unless ensure_redis_entry_exists
+
     enqueue_job('ShopWorker::MarkProductDeletedJob',
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
@@ -21,6 +25,8 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
+    return unless ensure_redis_entry_exists
+
     enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
     head :ok and return
@@ -101,6 +107,9 @@ class WebhooksController < ApplicationController
     data = JSON.parse(request_body)
     if data['detail'].present?
       @myshopify_domain = data['detail']['metadata']['X-Shopify-Shop-Domain']
+      @shopify_webhook_topic = data['detail']['metadata']['X-Shopify-Topic']
+      @shopify_product_id = data['detail']['metadata']['X-Shopify-Product-Id']
+      @shopify_collection_id = data['detail']['metadata']['X-Shopify-Collection-Id']
     else
       hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
       puts "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
@@ -115,5 +124,26 @@ class WebhooksController < ApplicationController
       puts "------ Inside webhook verify: calculated webhook matched\n" * 5
       @myshopify_domain = request.headers['HTTP_X_SHOPIFY_SHOP_DOMAIN']
     end
+  end
+
+  def ensure_redis_entry_exists
+    type = @shopify_webhook_topic&.split('/')&.first
+    return false unless type
+
+    formatted_type = ActiveSupport::Inflector.singularize(type)
+    handle_entry_type(formatted_type, instance_variable_get("@shopify_#{formatted_type}_id")) if ensure_type?(formatted_type)
+  end
+  
+  def handle_entry_type(type, id)
+    @key = "shopify_#{type}_#{id}"
+  
+    case @shopify_webhook_topic
+    when "#{type}s/update", "#{type}s/delete"
+      return $redis.exists(@key) == 1 ? true : false
+    end
+  end
+
+  def ensure_type?(type)
+    ['product', 'collection'].include?(type)
   end
 end
