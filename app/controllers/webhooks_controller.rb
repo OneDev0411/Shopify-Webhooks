@@ -46,7 +46,7 @@ class WebhooksController < ApplicationController
 
   #theme/publish
   def theme_publish
-    enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain], 'low', Time.now.to_i + 10)
+    enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain], 'themes', Time.now.to_i + 10)
     head :ok and return
   end
 
