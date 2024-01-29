@@ -138,6 +138,8 @@ class WebhooksController < ApplicationController
     @key = "shopify_#{type}_#{id}"
   
     case @shopify_webhook_topic
+    when "#{type}s/create"
+      return true
     when "#{type}s/update", "#{type}s/delete"
       return $redis.exists(@key) == 1 ? true : false
     end
