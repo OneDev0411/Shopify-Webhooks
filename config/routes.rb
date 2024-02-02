@@ -8,6 +8,6 @@ Rails.application.routes.draw do
   post '/app/uninstalled' => 'webhooks#app_uninstalled'
   post '/orders/create' => 'webhooks#order'
   post '/shop/update' => 'webhooks#shop_update'
-  post '/theme/publish' => 'webhooks#theme_publish'
-  post '/theme/update' => 'webhooks#theme_publish'
+  post '/themes/publish' => 'webhooks#themes_publish'
+  post '/themes/update' => 'webhooks#themes_publish'
 end
