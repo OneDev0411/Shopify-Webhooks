@@ -35,7 +35,7 @@ class WebhooksController < ApplicationController
   def order
     enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts],
                 'orders', Time.now.to_i + 10)
-    enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],
+    enqueue_job('ShopWorker::SaveOfferSaleJob', [@myshopify_domain, order_opts],
                  'sale_stats', Time.now.to_i + 11) unless @payload['cart_token'].nil?
     head :ok and return
   end
@@ -45,14 +45,15 @@ class WebhooksController < ApplicationController
     head :ok and return
   end
 
-  def shop_update
-    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10)
+  def themes_publish
+    if ENV['ENABLE_THEME_APP_EXTENSION']&.downcase == 'true'
+      enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain], 'themes', Time.now.to_i + 10)
+    end
     head :ok and return
   end
 
-  #theme/publish
-  def themes_publish
-    enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain], 'themes', Time.now.to_i + 10)
+  def shop_update
+    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10)
     head :ok and return
   end
 
