@@ -8,7 +8,7 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    # return unless ensure_redis_entry_exists
+    return unless ensure_redis_entry_exists
 
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'product', Time.now.to_i)
@@ -16,7 +16,7 @@ class WebhooksController < ApplicationController
   end
 
   def delete_product
-    # return unless ensure_redis_entry_exists
+    return unless ensure_redis_entry_exists
 
     enqueue_job('ShopWorker::MarkProductDeletedJob',
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
@@ -25,7 +25,7 @@ class WebhooksController < ApplicationController
 
   #collections/create, collections/update
   def collection
-    # return unless ensure_redis_entry_exists
+    return unless ensure_redis_entry_exists
 
     enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
                  [@myshopify_domain, @object_id], 'low', Time.now.to_i)
