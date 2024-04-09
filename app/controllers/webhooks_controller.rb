@@ -47,7 +47,7 @@ class WebhooksController < ApplicationController
 
   def themes_publish
     if ENV['ENABLE_THEME_APP_EXTENSION']&.downcase == 'true'
-      enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain, false], 'themes', Time.now.to_i + 10)
+      enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain, false], 'themes', Time.now.to_i)
     end
     head :ok and return
   end
