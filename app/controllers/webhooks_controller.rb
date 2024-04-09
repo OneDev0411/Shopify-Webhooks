@@ -139,7 +139,7 @@ class WebhooksController < ApplicationController
   
     case @shopify_webhook_topic
     when "#{type}s/update", "#{type}s/delete"
-      return $redis.exists(@key) == 1 ? true : false
+      return $redis_cache.exists(@key) == 1 ? true : false
     end
   end
 
