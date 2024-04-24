@@ -8,28 +8,28 @@ class WebhooksController < ApplicationController
 
   #products/create, products/update
   def product
-    return unless ensure_redis_entry_exists
-
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
-                 [@myshopify_domain, @object_id], 'product', Time.now.to_i)
+                  [@myshopify_domain, @object_id], 'product', Time.now.to_i) if ensure_redis_entry_exists
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   def delete_product
-    return unless ensure_redis_entry_exists
-
     enqueue_job('ShopWorker::MarkProductDeletedJob',
-                 [@myshopify_domain, @object_id], 'low', Time.now.to_i)
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   #collections/create, collections/update
   def collection
-    return unless ensure_redis_entry_exists
-
     enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
-                 [@myshopify_domain, @object_id], 'low', Time.now.to_i)
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   def order
@@ -38,11 +38,15 @@ class WebhooksController < ApplicationController
     enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],
                  'sale_stats', Time.now.to_i + 11) unless @payload['cart_token'].nil?
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   def app_uninstalled
     enqueue_job('ShopWorker::MarkShopAsCancelledJob', [@myshopify_domain], 'low', Time.now.to_i + 10)
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   def themes_publish
@@ -50,11 +54,15 @@ class WebhooksController < ApplicationController
       enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain, false], 'themes', Time.now.to_i)
     end
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   def shop_update
     enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10)
     head :ok and return
+  rescue => e
+    handle_error(e)
   end
 
   private
@@ -148,5 +156,10 @@ class WebhooksController < ApplicationController
 
   def ensure_type?(type)
     ['product', 'collection'].include?(type)
+  end
+
+  def handle_error(e)
+    Rails.logger.info "An error occurred in the webhook: #{e.message}"
+    head :ok
   end
 end
