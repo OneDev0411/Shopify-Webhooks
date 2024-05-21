@@ -162,7 +162,7 @@ class WebhooksController < ApplicationController
   end
 
   def ensure_not_duplicated_event
-    if $redis_cache.exists(@shopify_webhook_id) == 1
+    if $redis_cache.exists(@shopify_webhook_id) == 0
       $redis_cache.set(@shopify_webhook_id, 1)
       return true
     end
