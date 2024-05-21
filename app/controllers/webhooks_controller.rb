@@ -9,7 +9,7 @@ class WebhooksController < ApplicationController
   #products/create, products/update
   def product
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
-                  [@myshopify_domain, @object_id], 'product', Time.now.to_i) if ensure_redis_entry_exists
+                 [@myshopify_domain, @object_id], 'product', Time.now.to_i) if ensure_redis_entry_exists && ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
@@ -17,7 +17,7 @@ class WebhooksController < ApplicationController
 
   def delete_product
     enqueue_job('ShopWorker::MarkProductDeletedJob',
-                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists && ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
@@ -26,24 +26,26 @@ class WebhooksController < ApplicationController
   #collections/create, collections/update
   def collection
     enqueue_job('ShopWorker::UpdateCollectionIfUsedInOfferJob', 
-                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists
+                 [@myshopify_domain, @object_id], 'low', Time.now.to_i) if ensure_redis_entry_exists && ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
   end
 
   def order
-    enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts],
-                'orders', Time.now.to_i + 10)
-    enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],
-                 'sale_stats', Time.now.to_i + 11) unless @payload['cart_token'].nil?
+    if ensure_not_duplicated_event
+      enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts],
+                  'orders', Time.now.to_i + 10)
+      enqueue_job('ShopWorker::SaveOfferSaleJob', [@myshopify_domain, order_opts],
+                  'sale_stats', Time.now.to_i + 11) unless @payload['cart_token'].nil?
+    end
     head :ok and return
   rescue => e
     handle_error(e)
   end
 
   def app_uninstalled
-    enqueue_job('ShopWorker::MarkShopAsCancelledJob', [@myshopify_domain], 'low', Time.now.to_i + 10)
+    enqueue_job('ShopWorker::MarkShopAsCancelledJob', [@myshopify_domain], 'low', Time.now.to_i + 10) if ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
@@ -51,7 +53,7 @@ class WebhooksController < ApplicationController
 
   def themes_publish
     if ENV['ENABLE_THEME_APP_EXTENSION']&.downcase == 'true'
-      enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain, false], 'themes', Time.now.to_i)
+      enqueue_job('ShopWorker::ThemeUpdateJob',  [@myshopify_domain, false], 'themes', Time.now.to_i) if ensure_not_duplicated_event
     end
     head :ok and return
   rescue => e
@@ -59,7 +61,7 @@ class WebhooksController < ApplicationController
   end
 
   def shop_update
-    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10)
+    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10) if ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
@@ -119,6 +121,7 @@ class WebhooksController < ApplicationController
       @shopify_webhook_topic = data['detail']['metadata']['X-Shopify-Topic']
       @shopify_product_id = data['detail']['metadata']['X-Shopify-Product-Id']
       @shopify_collection_id = data['detail']['metadata']['X-Shopify-Collection-Id']
+      @shopify_webhook_id = data['detail']['metadata']['X-Shopify-Webhook-Id']
     else
       hmac_header = request.headers['HTTP_X_SHOPIFY_HMAC_SHA256']
       puts "------ Inside webhook verify: hmac_header #{hmac_header} ------\n"
@@ -156,6 +159,14 @@ class WebhooksController < ApplicationController
 
   def ensure_type?(type)
     ['product', 'collection'].include?(type)
+  end
+
+  def ensure_not_duplicated_event
+    if $redis_cache.exists(@shopify_webhook_id) == 1
+      $redis_cache.set(@shopify_webhook_id, 1)
+      return true
+    end
+    false
   end
 
   def handle_error(e)
