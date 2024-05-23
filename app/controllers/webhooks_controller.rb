@@ -61,7 +61,7 @@ class WebhooksController < ApplicationController
   end
 
   def shop_update
-    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'low', Time.now.to_i + 10) if ensure_not_duplicated_event
+    enqueue_job('ShopWorker::UpdateShopJob', [@myshopify_domain, shop_opts], 'shop', Time.now.to_i + 10) if ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
