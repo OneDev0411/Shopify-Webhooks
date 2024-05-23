@@ -36,7 +36,7 @@ class WebhooksController < ApplicationController
     if ensure_not_duplicated_event
       enqueue_job('ShopWorker::RecordOrderJob', [@myshopify_domain, order_opts],
                   'orders', Time.now.to_i + 10)
-      enqueue_job('ShopWorker::SaveOfferSaleJob', [@myshopify_domain, order_opts],
+      enqueue_job('ShopWorker::SaveOfferSaleJob', [order_opts],
                   'sale_stats', Time.now.to_i + 11) unless @payload['cart_token'].nil?
     end
     head :ok and return
