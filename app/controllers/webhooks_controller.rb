@@ -9,7 +9,7 @@ class WebhooksController < ApplicationController
   #products/create, products/update
   def product
     enqueue_job('ShopWorker::UpdateProductIfUsedInOfferJob', 
-                 [@myshopify_domain, @object_id], 'product', Time.now.to_i) if ensure_redis_entry_exists && ensure_not_duplicated_event
+                 [@myshopify_domain, @object_id], 'products', Time.now.to_i) if ensure_redis_entry_exists && ensure_not_duplicated_event
     head :ok and return
   rescue => e
     handle_error(e)
